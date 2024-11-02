@@ -1,8 +1,6 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
-
 	import { onMount } from 'svelte';
-
 	import type { Card } from '$lib';
 	import { cards } from '$lib';
 
@@ -146,24 +144,45 @@
 			return;
 		}
 
-		searchResults = cards
-			.filter((card) => {
-				return card.name.toLowerCase().includes(searchTerm.toLowerCase());
-			})
-			.sort((a, b) => {
-				const aIndex = a.name.toLowerCase().indexOf(searchTerm);
-				const bIndex = b.name.toLowerCase().indexOf(searchTerm);
+		const scoredResults = cards
+			.map((card) => {
+				let score = 0;
+				const cardName = card.name.toLowerCase();
+				const search = searchTerm.toLowerCase();
 
-				if (aIndex === 0 && bIndex !== 0) {
-					return -1;
-				} else if (bIndex === 0 && aIndex !== 0) {
-					return 1;
-				} else {
-					return aIndex - bIndex;
+				if (cardName === search) {
+					score += 1000;
+				} else if (cardName.startsWith(search)) {
+					score += 500;
+				} else if (cardName.includes(search)) {
+					score += 100;
 				}
+
+				const searchWords = search.split(' ');
+
+				if (searchWords.length > 1) {
+					const cardWords = cardName.split(' ');
+					searchWords.forEach((word) => {
+						if (cardWords.some((cardWord) => cardWord.startsWith(word))) {
+							score += 50;
+						}
+					});
+				}
+
+				return { card, score };
 			})
+			.filter((result) => result.score > 0)
+			.sort((a, b) => {
+				if (b.score !== a.score) {
+					return b.score - a.score;
+				}
+
+				return a.card.name.localeCompare(b.card.name);
+			})
+			.map((result) => result.card)
 			.slice(0, 5);
 
+		searchResults = scoredResults;
 		canChangeSettings = false;
 
 		if (!timerStarted) {
@@ -401,7 +420,7 @@
 							<img src={card.image} alt={card.name} class="h-full object-cover" />
 						{/if}
 
-						<p class="ml-2">{card.name}</p>
+						<p class="ml-2">{card.name} ({card.owner})</p>
 					</div>
 				</button>
 			</li>
